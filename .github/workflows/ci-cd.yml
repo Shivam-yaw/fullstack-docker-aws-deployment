@@ -32,26 +32,44 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
-            set -e
+           set -e
 
+            # 0) Stop docker if running (ignore errors)
+            sudo systemctl stop docker || true
+            
+            # 1) Remove Docker official repo (so it won't try installing containerd.io)
+            sudo rm -f /etc/apt/sources.list.d/docker.list || true
+            sudo rm -f /etc/apt/keyrings/docker.gpg || true
+            
+            # 2) Remove conflicting docker packages (safe to re-run)
+            sudo apt remove -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose || true
+            sudo apt remove -y containerd runc || true
+            
+            # 3) Clean apt state
             sudo apt update -y
-            sudo apt remove -y docker-compose-plugin docker-compose || true
-            sudo apt install -y docker.io docker-compose-v2 git
+            sudo apt --fix-broken install -y || true
+            
+            # 4) Install from Ubuntu repo ONLY (stable on 24.04)
+            sudo apt install -y docker.io containerd docker-compose-v2 git
+            
+            # 5) Start docker
             sudo systemctl enable docker
             sudo systemctl start docker
-      
+            
+            # 6) Verify
             docker --version
             docker compose version
-      
+            
+            # 7) Deploy
             mkdir -p /home/ubuntu/app
             cd /home/ubuntu/app
-      
+            
             if [ ! -f docker-compose.yml ]; then
               git clone https://github.com/Shivam-yaw/fullstack-docker-aws-deployment.git .
             else
               git pull
             fi
-
+            
             docker compose pull
             docker compose up -d
             docker ps
