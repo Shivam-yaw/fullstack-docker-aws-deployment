@@ -56,6 +56,21 @@ jobs:
             sudo systemctl enable docker
             sudo systemctl start docker
             
+            # Start docker (if fails, print logs and exit)
+            if ! sudo systemctl enable --now docker; then
+              echo "=== Docker service failed. Showing status & logs ==="
+              sudo systemctl status docker --no-pager || true
+              sudo journalctl -u docker --no-pager -n 200 || true
+              exit 1
+            fi
+
+            if ! sudo systemctl enable --now containerd; then
+            echo "=== containerd service failed. Showing status & logs ==="
+            sudo systemctl status containerd --no-pager || true
+            sudo journalctl -u containerd --no-pager -n 200 || true
+            exit 1
+            fi
+            
             # 6) Verify
             docker --version
             docker compose version
