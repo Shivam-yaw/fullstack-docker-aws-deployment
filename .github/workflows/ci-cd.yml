@@ -34,57 +34,37 @@ jobs:
           script: |
            set -e
 
-            # 0) Stop docker if running (ignore errors)
-            sudo systemctl stop docker || true
+            export DEBIAN_FRONTEND=noninteractive
             
-            # 1) Remove Docker official repo (so it won't try installing containerd.io)
-            sudo rm -f /etc/apt/sources.list.d/docker.list || true
-            sudo rm -f /etc/apt/keyrings/docker.gpg || true
-            
-            # 2) Remove conflicting docker packages (safe to re-run)
-            sudo apt remove -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose || true
-            sudo apt remove -y containerd runc || true
-            
-            # 3) Clean apt state
             sudo apt update -y
-            sudo apt --fix-broken install -y || true
+            sudo apt install -y docker.io containerd docker-compose-v2 || true
             
-            # 4) Install from Ubuntu repo ONLY (stable on 24.04)
-            sudo apt install -y docker.io containerd docker-compose-v2 git
+            sudo systemctl daemon-reload
             
-            # 5) Start docker
-            sudo systemctl enable docker
-            sudo systemctl start docker
-            
-            # Start docker (if fails, print logs and exit)
-            if ! sudo systemctl enable --now docker; then
-              echo "=== Docker service failed. Showing status & logs ==="
-              sudo systemctl status docker --no-pager || true
-              sudo journalctl -u docker --no-pager -n 200 || true
+            # Start containerd first
+            if ! sudo systemctl enable --now containerd; then
+              echo "=== containerd failed ==="
+              sudo systemctl status containerd --no-pager || true
+              sudo journalctl -u containerd --no-pager -n 200 || true
               exit 1
             fi
-
-            if ! sudo systemctl enable --now containerd; then
-            echo "=== containerd service failed. Showing status & logs ==="
-            sudo systemctl status containerd --no-pager || true
-            sudo journalctl -u containerd --no-pager -n 200 || true
-            exit 1
+            
+            # Start docker, if fails print full logs and exit
+            if ! sudo systemctl enable --now docker; then
+              echo "=== docker failed ==="
+              sudo systemctl status docker --no-pager || true
+              sudo journalctl -u docker --no-pager -n 200 || true
+            
+              echo "=== extra diagnostics ==="
+              sudo ls -la /etc/docker || true
+              sudo cat /etc/docker/daemon.json || true
+              sudo dmesg | tail -n 80 || true
+              exit 1
             fi
             
-            # 6) Verify
             docker --version
             docker compose version
-            
-            # 7) Deploy
-            mkdir -p /home/ubuntu/app
-            cd /home/ubuntu/app
-            
-            if [ ! -f docker-compose.yml ]; then
-              git clone https://github.com/Shivam-yaw/fullstack-docker-aws-deployment.git .
-            else
-              git pull
-            fi
-            
-            docker compose pull
+                        
+                        docker compose pull
             docker compose up -d
             docker ps
