@@ -32,39 +32,24 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
-           set -e
-
-            export DEBIAN_FRONTEND=noninteractive
-            
-            sudo apt update -y
-            sudo apt install -y docker.io containerd docker-compose-v2 || true
-            
-            sudo systemctl daemon-reload
-            
-            # Start containerd first
-            if ! sudo systemctl enable --now containerd; then
-              echo "=== containerd failed ==="
-              sudo systemctl status containerd --no-pager || true
-              sudo journalctl -u containerd --no-pager -n 200 || true
-              exit 1
-            fi
-            
-            # Start docker, if fails print full logs and exit
-            if ! sudo systemctl enable --now docker; then
-              echo "=== docker failed ==="
-              sudo systemctl status docker --no-pager || true
-              sudo journalctl -u docker --no-pager -n 200 || true
-            
-              echo "=== extra diagnostics ==="
-              sudo ls -la /etc/docker || true
-              sudo cat /etc/docker/daemon.json || true
-              sudo dmesg | tail -n 80 || true
-              exit 1
-            fi
-            
+            set -e
+      
+            sudo systemctl enable --now docker
             docker --version
             docker compose version
-                        
-                        docker compose pull
+      
+            mkdir -p /home/ubuntu/app
+            cd /home/ubuntu/app
+      
+            if [ ! -d .git ]; then
+              git clone https://github.com/Shivam-yaw/fullstack-docker-aws-deployment.git .
+            else
+              git pull
+            fi
+      
+            ls -la
+            test -f docker-compose.yml
+      
+            docker compose pull
             docker compose up -d
             docker ps
