@@ -21,7 +21,7 @@ services:
       # If your backend supports env-based Mongo URL, use it.
       # If not, update backend/app/config/db.config.js to point to "mongo"
       # Example: mongodb://mongo:27017/<dbname>
-      - MONGODB_URI=mongodb://mongo:27017/test
+      - MONGO_URI=mongodb://mongo:27017/dd_db
       - NODE_ENV=production
     expose:
       - "5000"
